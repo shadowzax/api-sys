@@ -1,0 +1,1 @@
+const mando = "https://i.ibb.co/yjsL7YQ/photo-2026-08-11-02-55-41.jpg"
