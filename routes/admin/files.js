@@ -6,7 +6,69 @@ const {
     createSalaryFile
 } = require("../../mydb/salary");
 
+router.post("/delete-folder", (req, res) => {
+    try {
+        const { folderId, password } = req.body;
 
+        if (!password || password !== "010") {
+            return res.status(401).json({
+                success: false,
+                message: "الباسورد غير صحيح"
+            });
+        }
+
+        if (
+            !folderId ||
+            typeof folderId !== "string" ||
+            !folderId.trim()
+        ) {
+            return res.status(400).json({
+                success: false,
+                message: "معرف الفايل مطلوب"
+            });
+        }
+
+        const id = folderId.trim();
+
+        db.run(
+            "DELETE FROM salary_files WHERE id = ?",
+            [id],
+            function (error) {
+                if (error) {
+                    console.error(error);
+
+                    return res.status(500).json({
+                        success: false,
+                        message: "حدث خطأ أثناء حذف الفايل",
+                        error: error.message
+                    });
+                }
+
+                if (this.changes === 0) {
+                    return res.status(404).json({
+                        success: false,
+                        message: "الفايل غير موجود"
+                    });
+                }
+
+                return res.status(200).json({
+                    success: true,
+                    message: "تم حذف الفايل بنجاح",
+                    fileId: id
+                });
+            }
+        );
+
+    } catch (error) {
+        console.error(error);
+
+        return res.status(500).json({
+            success: false,
+            message: "حدث خطأ أثناء حذف الفايل",
+            error: error.message
+        });
+    }
+});
 /*----------------------------------------------*/
 router.post("/create", async (req, res) => {
     try {
@@ -76,6 +138,7 @@ router.post("/create", async (req, res) => {
         });
     }
 });
+/*--------------------------------------------------*/
 
 router.post("/add-employee", (req, res) => {
     const {
@@ -354,7 +417,8 @@ router.put("/update-employee", (req, res) => {
 router.delete("/delete-employee", (req, res) => {
     const {
         fileId = "",
-        employeeId = ""
+        employeeId = "",
+        password = ""
     } = req.body;
 
     if (!fileId || typeof fileId !== "string" || !fileId.trim()) {
@@ -368,6 +432,20 @@ router.delete("/delete-employee", (req, res) => {
         return res.status(400).json({
             success: false,
             message: "معرف الموظف مطلوب"
+        });
+    }
+
+    if (!password || typeof password !== "string" || !password.trim()) {
+        return res.status(400).json({
+            success: false,
+            message: "كلمة المرور مطلوبة"
+        });
+    }
+
+    if (password.trim() !== "010") {
+        return res.status(401).json({
+            success: false,
+            message: "كلمة المرور غير صحيحة"
         });
     }
 
@@ -406,6 +484,13 @@ router.delete("/delete-employee", (req, res) => {
                 });
             }
 
+            if (!Array.isArray(employees)) {
+                return res.status(500).json({
+                    success: false,
+                    message: "بيانات الموظفين غير صالحة"
+                });
+            }
+
             const employeeIndex = employees.findIndex(
                 employee => employee.id === employeeId.trim()
             );
@@ -429,7 +514,7 @@ router.delete("/delete-employee", (req, res) => {
                     JSON.stringify(employees),
                     fileId.trim()
                 ],
-                updateError => {
+                function (updateError) {
                     if (updateError) {
                         return res.status(500).json({
                             success: false,
@@ -448,7 +533,7 @@ router.delete("/delete-employee", (req, res) => {
         }
     );
 });
-/*-------------------------------------------------*/
+
 router.get("/", (req, res) => {
     db.all(
         `
