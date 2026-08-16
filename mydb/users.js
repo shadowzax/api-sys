@@ -1,4 +1,3 @@
-
 const sqlite3 = require("sqlite3").verbose();
 const path = require("path");
 const fs = require("fs");
@@ -33,6 +32,7 @@ db.serialize(() => {
             account_type TEXT DEFAULT 'user',
             job_title TEXT DEFAULT '',
             account_status TEXT DEFAULT 'active',
+            restaurant_id TEXT DEFAULT '1',
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             advances TEXT DEFAULT '[]',
             expenses TEXT DEFAULT '[]',
@@ -60,6 +60,7 @@ db.serialize(() => {
         account_type: "TEXT DEFAULT 'user'",
         job_title: "TEXT DEFAULT ''",
         account_status: "TEXT DEFAULT 'active'",
+        restaurant_id: "TEXT DEFAULT '1'",
         created_at: "DATETIME DEFAULT CURRENT_TIMESTAMP",
         advances: "TEXT DEFAULT '[]'",
         expenses: "TEXT DEFAULT '[]'",
@@ -88,6 +89,18 @@ db.serialize(() => {
 
         const addNextColumn = (index) => {
             if (index >= columnEntries.length) {
+                db.run(`
+                    UPDATE users
+                    SET restaurant_id = '1'
+                    WHERE restaurant_id IS NULL OR restaurant_id = ''
+                `, (err) => {
+                    if (err) {
+                        console.error("Error updating existing users:", err.message);
+                    } else {
+                        console.log("Existing users updated successfully.");
+                    }
+                });
+
                 return;
             }
 
