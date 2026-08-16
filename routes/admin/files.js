@@ -10,7 +10,7 @@ router.post("/delete-folder", (req, res) => {
     try {
         const { folderId, password } = req.body;
 
-        if (!password || password !== "010") {
+        if (!password || password !== "01025") {
             return res.status(401).json({
                 success: false,
                 message: "الباسورد غير صحيح"
@@ -442,7 +442,7 @@ router.delete("/delete-employee", (req, res) => {
         });
     }
 
-    if (password.trim() !== "010") {
+    if (password.trim() !== "01025") {
         return res.status(401).json({
             success: false,
             message: "كلمة المرور غير صحيحة"
