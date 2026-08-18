@@ -23,26 +23,51 @@ db.serialize(() => {
         CREATE TABLE IF NOT EXISTS salary_files (
             id TEXT PRIMARY KEY,
             name TEXT NOT NULL,
-            restaurant_id TEXT NOT NULL DEFAULT '1',
+            restaurant_id TEXT,
             created_at TEXT NOT NULL,
             employees TEXT NOT NULL DEFAULT '[]'
         )
-    `);
-
-    db.run(`
-        ALTER TABLE salary_files
-        ADD COLUMN restaurant_id TEXT NOT NULL DEFAULT '1'
     `, (err) => {
-        if (err && !err.message.includes("duplicate column name")) {
+        if (err) {
             console.error(err.message);
+            return;
         }
-    });
 
-    db.run(`
-        UPDATE salary_files
-        SET restaurant_id = '1'
-        WHERE restaurant_id IS NULL OR restaurant_id = ''
-    `);
+        db.all(`PRAGMA table_info(salary_files)`, (err, columns) => {
+            if (err) {
+                console.error(err.message);
+                return;
+            }
+
+            const hasRestaurantId = columns.some(
+                column => column.name === "restaurant_id"
+            );
+
+            if (!hasRestaurantId) {
+                db.run(`
+                    ALTER TABLE salary_files
+                    ADD COLUMN restaurant_id TEXT
+                `, (err) => {
+                    if (err) {
+                        console.error(err.message);
+                        return;
+                    }
+
+                    db.run(`
+                        UPDATE salary_files
+                        SET restaurant_id = '1'
+                        WHERE restaurant_id IS NULL OR restaurant_id = ''
+                    `);
+                });
+            } else {
+                db.run(`
+                    UPDATE salary_files
+                    SET restaurant_id = '1'
+                    WHERE restaurant_id IS NULL OR restaurant_id = ''
+                `);
+            }
+        });
+    });
 });
 
 function generateFileId() {
@@ -53,14 +78,17 @@ function generateEmployeeId() {
     return `id_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
 }
 
-function createSalaryFile(name, restaurant_id = "1", employees = []) {
+function createSalaryFile(name, restaurant_id, employees = []) {
     return new Promise((resolve, reject) => {
-        if (Array.isArray(restaurant_id)) {
-            employees = restaurant_id;
-            restaurant_id = "1";
+        if (!restaurant_id) {
+            reject(new Error("restaurant_id مطلوب"));
+            return;
         }
 
-        restaurant_id = restaurant_id || "1";
+        if (!Array.isArray(employees)) {
+            reject(new Error("employees يجب أن تكون مصفوفة"));
+            return;
+        }
 
         const fileId = generateFileId();
         const createdAt = new Date().toISOString();
@@ -93,7 +121,7 @@ function createSalaryFile(name, restaurant_id = "1", employees = []) {
             [
                 fileId,
                 name,
-                restaurant_id,
+                String(restaurant_id),
                 createdAt,
                 JSON.stringify(formattedEmployees)
             ],
@@ -106,7 +134,7 @@ function createSalaryFile(name, restaurant_id = "1", employees = []) {
                 resolve({
                     id: fileId,
                     name,
-                    restaurant_id,
+                    restaurant_id: String(restaurant_id),
                     createdAt,
                     employees: formattedEmployees
                 });
