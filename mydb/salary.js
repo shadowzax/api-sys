@@ -23,9 +23,25 @@ db.serialize(() => {
         CREATE TABLE IF NOT EXISTS salary_files (
             id TEXT PRIMARY KEY,
             name TEXT NOT NULL,
+            restaurant_id TEXT NOT NULL DEFAULT '1',
             created_at TEXT NOT NULL,
             employees TEXT NOT NULL DEFAULT '[]'
         )
+    `);
+
+    db.run(`
+        ALTER TABLE salary_files
+        ADD COLUMN restaurant_id TEXT NOT NULL DEFAULT '1'
+    `, (err) => {
+        if (err && !err.message.includes("duplicate column name")) {
+            console.error(err.message);
+        }
+    });
+
+    db.run(`
+        UPDATE salary_files
+        SET restaurant_id = '1'
+        WHERE restaurant_id IS NULL OR restaurant_id = ''
     `);
 });
 
@@ -37,8 +53,15 @@ function generateEmployeeId() {
     return `id_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
 }
 
-function createSalaryFile(name, employees = []) {
+function createSalaryFile(name, restaurant_id = "1", employees = []) {
     return new Promise((resolve, reject) => {
+        if (Array.isArray(restaurant_id)) {
+            employees = restaurant_id;
+            restaurant_id = "1";
+        }
+
+        restaurant_id = restaurant_id || "1";
+
         const fileId = generateFileId();
         const createdAt = new Date().toISOString();
 
@@ -61,14 +84,16 @@ function createSalaryFile(name, employees = []) {
             INSERT INTO salary_files (
                 id,
                 name,
+                restaurant_id,
                 created_at,
                 employees
             )
-            VALUES (?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?)
             `,
             [
                 fileId,
                 name,
+                restaurant_id,
                 createdAt,
                 JSON.stringify(formattedEmployees)
             ],
@@ -81,6 +106,7 @@ function createSalaryFile(name, employees = []) {
                 resolve({
                     id: fileId,
                     name,
+                    restaurant_id,
                     createdAt,
                     employees: formattedEmployees
                 });
