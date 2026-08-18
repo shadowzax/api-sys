@@ -10,7 +10,7 @@ router.post("/delete-folder", (req, res) => {
     try {
         const { folderId, password } = req.body;
 
-        if (!password || password !== "01025") {
+        if (!password || password !== "010") {
             return res.status(401).json({
                 success: false,
                 message: "الباسورد غير صحيح"
@@ -74,6 +74,7 @@ router.post("/create", async (req, res) => {
     try {
         const {
             name = "",
+            restaurant_id,
             employees = []
         } = req.body;
 
@@ -81,6 +82,13 @@ router.post("/create", async (req, res) => {
             return res.status(400).json({
                 success: false,
                 message: "اسم الملف مطلوب"
+            });
+        }
+
+        if (!restaurant_id) {
+            return res.status(400).json({
+                success: false,
+                message: "restaurant_id مطلوب"
             });
         }
 
@@ -120,6 +128,7 @@ router.post("/create", async (req, res) => {
 
         const file = await createSalaryFile(
             name.trim(),
+            restaurant_id,
             formattedEmployees
         );
 
@@ -442,7 +451,7 @@ router.delete("/delete-employee", (req, res) => {
         });
     }
 
-    if (password.trim() !== "01025") {
+    if (password.trim() !== "010") {
         return res.status(401).json({
             success: false,
             message: "كلمة المرور غير صحيحة"
@@ -537,7 +546,7 @@ router.delete("/delete-employee", (req, res) => {
 router.get("/", (req, res) => {
     db.all(
         `
-        SELECT id, name, created_at, employees
+        SELECT id, name, restaurant_id, created_at, employees
         FROM salary_files
         ORDER BY created_at DESC
         `,
@@ -557,6 +566,7 @@ router.get("/", (req, res) => {
                 const files = rows.map(row => ({
                     id: row.id,
                     name: row.name,
+                    restaurant_id: row.restaurant_id || "1",
                     createdAt: row.created_at,
                     employees: JSON.parse(row.employees || "[]")
                 }));
