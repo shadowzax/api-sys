@@ -50,7 +50,7 @@ function generateEmployeeCode(usedCodes) {
     return code;
 }
 
-function normalizeEmployees(employees, regenerateNumbers = false) {
+function normalizeEmployees(employees) {
     if (!Array.isArray(employees)) {
         return [];
     }
@@ -66,21 +66,16 @@ function normalizeEmployees(employees, regenerateNumbers = false) {
         let employeeId = String(updatedEmployee.id || "").trim();
         let employeeCode = String(updatedEmployee.code || "").trim();
 
-        if (regenerateNumbers) {
+        if (!employeeId || usedIds.has(employeeId)) {
             employeeId = generateUniqueEmployeeId(usedIds);
+        } else {
+            usedIds.add(employeeId);
+        }
+
+        if (!employeeCode || usedCodes.has(employeeCode)) {
             employeeCode = generateEmployeeCode(usedCodes);
         } else {
-            if (!employeeId || usedIds.has(employeeId)) {
-                employeeId = generateUniqueEmployeeId(usedIds);
-            } else {
-                usedIds.add(employeeId);
-            }
-
-            if (!employeeCode || usedCodes.has(employeeCode)) {
-                employeeCode = generateEmployeeCode(usedCodes);
-            } else {
-                usedCodes.add(employeeCode);
-            }
+            usedCodes.add(employeeCode);
         }
 
         updatedEmployee.id = employeeId;
@@ -153,10 +148,21 @@ function updateOldEmployees() {
                     return;
                 }
 
-                const updatedEmployees = normalizeEmployees(
-                    employees,
-                    true
-                );
+                const hasInvalidData = employees.some((employee) => {
+                    return (
+                        !employee ||
+                        !employee.id ||
+                        !employee.code ||
+                        !Array.isArray(employee.salaryRecords) ||
+                        !Array.isArray(employee.advances)
+                    );
+                });
+
+                if (!hasInvalidData) {
+                    return;
+                }
+
+                const updatedEmployees = normalizeEmployees(employees);
 
                 db.run(
                     `
@@ -170,16 +176,8 @@ function updateOldEmployees() {
                     ],
                     (updateErr) => {
                         if (updateErr) {
-                            console.error(
-                                `خطأ في تحديث الملف ${row.id}:`,
-                                updateErr.message
-                            );
-                            return;
+                            console.error(updateErr.message);
                         }
-
-                        console.log(
-                            `تم تحديث الأرقام العشوائية للملف ${row.id}`
-                        );
                     }
                 );
             });
@@ -219,8 +217,7 @@ db.serialize(() => {
                         `
                         UPDATE salary_files
                         SET restaurant_id = '1'
-                        WHERE restaurant_id IS NULL
-                           OR restaurant_id = ''
+                        WHERE restaurant_id IS NULL OR restaurant_id = ''
                         `,
                         (err) => {
                             if (err) {
