@@ -22,29 +22,27 @@ function generateFileId() {
     return `id_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
 }
 
-function generateEmployeeId() {
-    return String(Math.floor(100 + Math.random() * 900));
-}
+function generateEmployeeId(usedIds) {
+    let number = 1;
 
-function generateUniqueEmployeeId(usedIds) {
-    let id;
+    while (usedIds.has(String(number).padStart(3, "0"))) {
+        number++;
+    }
 
-    do {
-        id = generateEmployeeId();
-    } while (usedIds.has(id));
-
+    const id = String(number).padStart(3, "0");
     usedIds.add(id);
 
     return id;
 }
 
 function generateEmployeeCode(usedCodes) {
-    let code;
+    let number = 1;
 
-    do {
-        code = String(Math.floor(100 + Math.random() * 900));
-    } while (usedCodes.has(code));
+    while (usedCodes.has(String(number).padStart(3, "0"))) {
+        number++;
+    }
 
+    const code = String(number).padStart(3, "0");
     usedCodes.add(code);
 
     return code;
@@ -67,7 +65,7 @@ function normalizeEmployees(employees) {
         let employeeCode = String(updatedEmployee.code || "").trim();
 
         if (!employeeId || usedIds.has(employeeId)) {
-            employeeId = generateUniqueEmployeeId(usedIds);
+            employeeId = generateEmployeeId(usedIds);
         } else {
             usedIds.add(employeeId);
         }
@@ -118,6 +116,30 @@ function normalizeEmployees(employees) {
     });
 }
 
+function normalizeOldEmployeeCodes(employees) {
+    if (!Array.isArray(employees)) {
+        return [];
+    }
+
+    const usedCodes = new Set();
+
+    return employees.map((employee) => {
+        const updatedEmployee = {
+            ...employee
+        };
+
+        const code = String(updatedEmployee.code || "").trim();
+
+        if (!/^\d{3}$/.test(code) || usedCodes.has(code)) {
+            updatedEmployee.code = generateEmployeeCode(usedCodes);
+        } else {
+            usedCodes.add(code);
+        }
+
+        return updatedEmployee;
+    });
+}
+
 function updateOldEmployees() {
     db.all(
         "SELECT id, employees FROM salary_files",
@@ -148,21 +170,25 @@ function updateOldEmployees() {
                     return;
                 }
 
-                const hasInvalidData = employees.some((employee) => {
-                    return (
-                        !employee ||
-                        !employee.id ||
-                        !employee.code ||
-                        !Array.isArray(employee.salaryRecords) ||
-                        !Array.isArray(employee.advances)
-                    );
-                });
+                const updatedEmployees = normalizeEmployees(employees);
 
-                if (!hasInvalidData) {
+                const codesNeedUpdate = updatedEmployees.some(
+                    (employee, index) => {
+                        const oldCode = String(
+                            employees[index]?.code || ""
+                        ).trim();
+
+                        const newCode = String(
+                            employee.code || ""
+                        ).trim();
+
+                        return oldCode !== newCode;
+                    }
+                );
+
+                if (!codesNeedUpdate) {
                     return;
                 }
-
-                const updatedEmployees = normalizeEmployees(employees);
 
                 db.run(
                     `
@@ -176,7 +202,14 @@ function updateOldEmployees() {
                     ],
                     (updateErr) => {
                         if (updateErr) {
-                            console.error(updateErr.message);
+                            console.error(
+                                `تعذر تحديث موظفي الملف ${row.id}:`,
+                                updateErr.message
+                            );
+                        } else {
+                            console.log(
+                                `تم تحديث أكواد موظفي الملف ${row.id}`
+                            );
                         }
                     }
                 );
@@ -217,7 +250,8 @@ db.serialize(() => {
                         `
                         UPDATE salary_files
                         SET restaurant_id = '1'
-                        WHERE restaurant_id IS NULL OR restaurant_id = ''
+                        WHERE restaurant_id IS NULL
+                        OR restaurant_id = ''
                         `,
                         (err) => {
                             if (err) {
@@ -280,36 +314,42 @@ function createSalaryFile(name, restaurant_id, employees = []) {
         const usedCodes = new Set();
 
         const formattedEmployees = employees.map((employee) => {
-            const employeeId = generateUniqueEmployeeId(usedIds);
+            const employeeId = generateEmployeeId(usedIds);
             const employeeCode = generateEmployeeCode(usedCodes);
 
             return {
                 id: employeeId,
                 code: employeeCode,
+
                 name:
                     employee.name === undefined ||
                     employee.name === null
                         ? ""
                         : String(employee.name).trim(),
+
                 phone:
                     employee.phone === undefined ||
                     employee.phone === null
                         ? ""
                         : String(employee.phone).trim(),
+
                 profession:
                     employee.profession === undefined ||
                     employee.profession === null
                         ? ""
                         : String(employee.profession).trim(),
+
                 monthlySalary:
                     employee.monthlySalary === undefined ||
                     employee.monthlySalary === null ||
                     employee.monthlySalary === ""
                         ? "0"
                         : String(employee.monthlySalary),
+
                 salaryRecords: Array.isArray(employee.salaryRecords)
                     ? employee.salaryRecords
                     : [],
+
                 advances: Array.isArray(employee.advances)
                     ? employee.advances
                     : []
