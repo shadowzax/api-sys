@@ -13,7 +13,8 @@ router.post("/expenses-store", (req, res) => {
         name = "",
         date = "",
         rows = [],
-        total = "0"
+        total = "0",
+        password = ""
     } = req.body;
 
     if (!token) {
@@ -66,7 +67,7 @@ router.post("/expenses-store", (req, res) => {
         }
 
         db.get(
-            "SELECT expenses FROM users WHERE id = ? LIMIT 1",
+            "SELECT account_type, expenses FROM users WHERE id = ? LIMIT 1",
             [userId],
             (err, user) => {
                 if (err) {
@@ -97,6 +98,34 @@ router.post("/expenses-store", (req, res) => {
                     expenses = [];
                 }
 
+                const existingReport = expenses.find((report) => {
+                    if (!report) {
+                        return false;
+                    }
+
+                    const sameRestaurant =
+                        String(report.restaurant_id || "").trim() === restaurantId;
+
+                    const sameDate =
+                        String(report.date || "").trim() === reportDate;
+
+                    return sameRestaurant && sameDate;
+                });
+
+                if (existingReport && user.account_type !== "admin") {
+                    const enteredPassword = String(password || "").trim();
+
+                    if (
+                        enteredPassword !== "01025" &&
+                        enteredPassword !== "01063"
+                    ) {
+                        return res.status(403).json({
+                            success: false,
+                            message: "تحديث التقرير يحتاج إلى باسورد صحيح"
+                        });
+                    }
+                }
+
                 expenses = expenses.filter((report) => {
                     if (!report) {
                         return false;
@@ -112,13 +141,14 @@ router.post("/expenses-store", (req, res) => {
                 });
 
                 const report = {
-                    id:
-                        "rep_" +
-                        Date.now() +
-                        "_" +
-                        Math.random()
-                            .toString(36)
-                            .substring(2, 8),
+                    id: existingReport
+                        ? existingReport.id
+                        : "rep_" +
+                          Date.now() +
+                          "_" +
+                          Math.random()
+                              .toString(36)
+                              .substring(2, 8),
 
                     restaurant_id: restaurantId,
 
@@ -160,7 +190,9 @@ router.post("/expenses-store", (req, res) => {
 
                         return res.status(201).json({
                             success: true,
-                            message: "تم تحديث المصروفات بنجاح",
+                            message: existingReport
+                                ? "تم تحديث التقرير بنجاح"
+                                : "تم حفظ التقرير بنجاح",
                             report
                         });
                     }
@@ -169,7 +201,6 @@ router.post("/expenses-store", (req, res) => {
         );
     });
 });
-
 router.delete("/expenses-delete", (req, res) => {
     const {
         token,
@@ -315,9 +346,9 @@ router.put("/expenses-update", (req, res) => {
         reportId = "",
         code = "",
         name = "",
-        date = "",
         rows = [],
-        total = "0"
+        total = "0",
+        password = ""
     } = req.body;
 
     if (!token) {
@@ -369,17 +400,8 @@ router.put("/expenses-update", (req, res) => {
             });
         }
 
-        const reportDate = String(date || "").trim();
-
-        if (!reportDate) {
-            return res.status(400).json({
-                success: false,
-                message: "التاريخ مطلوب"
-            });
-        }
-
         db.get(
-            "SELECT expenses FROM users WHERE id = ? LIMIT 1",
+            "SELECT account_type, expenses FROM users WHERE id = ? LIMIT 1",
             [userId],
             (err, user) => {
                 if (err) {
@@ -394,6 +416,20 @@ router.put("/expenses-update", (req, res) => {
                         success: false,
                         message: "المستخدم غير موجود"
                     });
+                }
+
+                if (user.account_type !== "admin") {
+                    const enteredPassword = String(password || "").trim();
+
+                    if (
+                        enteredPassword !== "01025" &&
+                        enteredPassword !== "01063"
+                    ) {
+                        return res.status(403).json({
+                            success: false,
+                            message: "ليس لديك صلاحية تعديل التقرير بدون باسورد صحيح"
+                        });
+                    }
                 }
 
                 let expenses = [];
@@ -431,12 +467,14 @@ router.put("/expenses-update", (req, res) => {
                     });
                 }
 
+                const oldReport = expenses[reportIndex];
+
                 const updatedReport = {
                     id: reportIdValue,
                     restaurant_id: restaurantId,
                     code: String(code || ""),
                     name: String(name || ""),
-                    date: reportDate,
+                    date: oldReport.date,
                     timestamp: new Date().toISOString(),
                     rows: rows.map((row) => ({
                         desc: String(row?.desc || ""),
@@ -783,9 +821,9 @@ router.put("/advances-update", (req, res) => {
         reportId = "",
         code = "",
         name = "",
-        date = "",
         rows = [],
-        total = "0"
+        total = "0",
+        password = ""
     } = req.body;
 
     if (!token) {
@@ -837,17 +875,8 @@ router.put("/advances-update", (req, res) => {
             });
         }
 
-        const reportDate = String(date || "").trim();
-
-        if (!reportDate) {
-            return res.status(400).json({
-                success: false,
-                message: "التاريخ مطلوب"
-            });
-        }
-
         db.get(
-            "SELECT advances FROM users WHERE id = ? LIMIT 1",
+            "SELECT account_type, advances FROM users WHERE id = ? LIMIT 1",
             [userId],
             (err, user) => {
                 if (err) {
@@ -862,6 +891,20 @@ router.put("/advances-update", (req, res) => {
                         success: false,
                         message: "المستخدم غير موجود"
                     });
+                }
+
+                if (user.account_type !== "admin") {
+                    const enteredPassword = String(password || "").trim();
+
+                    if (
+                        enteredPassword !== "01025" &&
+                        enteredPassword !== "01063"
+                    ) {
+                        return res.status(403).json({
+                            success: false,
+                            message: "ليس لديك صلاحية تعديل التقرير بدون باسورد صحيح"
+                        });
+                    }
                 }
 
                 let advances = [];
@@ -899,12 +942,14 @@ router.put("/advances-update", (req, res) => {
                     });
                 }
 
+                const oldReport = advances[reportIndex];
+
                 const updatedReport = {
                     id: reportIdValue,
                     restaurant_id: restaurantId,
                     code: String(code || ""),
                     name: String(name || ""),
-                    date: reportDate,
+                    date: oldReport.date,
                     timestamp: new Date().toISOString(),
                     rows: rows.map((row) => ({
                         desc: String(row?.desc || ""),
@@ -1249,9 +1294,9 @@ router.put("/trans-update", (req, res) => {
         reportId = "",
         code = "",
         name = "",
-        date = "",
         rows = [],
-        total = "0"
+        total = "0",
+        password = ""
     } = req.body;
 
     if (!token) {
@@ -1303,17 +1348,8 @@ router.put("/trans-update", (req, res) => {
             });
         }
 
-        const reportDate = String(date || "").trim();
-
-        if (!reportDate) {
-            return res.status(400).json({
-                success: false,
-                message: "التاريخ مطلوب"
-            });
-        }
-
         db.get(
-            "SELECT transfers FROM users WHERE id = ? LIMIT 1",
+            "SELECT account_type, transfers FROM users WHERE id = ? LIMIT 1",
             [userId],
             (err, user) => {
                 if (err) {
@@ -1328,6 +1364,20 @@ router.put("/trans-update", (req, res) => {
                         success: false,
                         message: "المستخدم غير موجود"
                     });
+                }
+
+                if (user.account_type !== "admin") {
+                    const enteredPassword = String(password || "").trim();
+
+                    if (
+                        enteredPassword !== "01025" &&
+                        enteredPassword !== "01063"
+                    ) {
+                        return res.status(403).json({
+                            success: false,
+                            message: "ليس لديك صلاحية تعديل التقرير بدون باسورد صحيح"
+                        });
+                    }
                 }
 
                 let transfers = [];
@@ -1365,12 +1415,14 @@ router.put("/trans-update", (req, res) => {
                     });
                 }
 
+                const oldReport = transfers[reportIndex];
+
                 const updatedReport = {
                     id: reportIdValue,
                     restaurant_id: restaurantId,
                     code: String(code || ""),
                     name: String(name || ""),
-                    date: reportDate,
+                    date: oldReport.date,
                     timestamp: new Date().toISOString(),
                     rows: rows.map((row) => ({
                         desc: String(row?.desc || ""),
@@ -1415,7 +1467,8 @@ router.post("/fees-store", (req, res) => {
         name = "",
         date = "",
         rows = [],
-        total = "0"
+        total = "0",
+        password = ""
     } = req.body;
 
     if (!token) {
@@ -1468,7 +1521,7 @@ router.post("/fees-store", (req, res) => {
         }
 
         db.get(
-            "SELECT fees FROM users WHERE id = ? LIMIT 1",
+            "SELECT account_type, fees FROM users WHERE id = ? LIMIT 1",
             [userId],
             (err, user) => {
                 if (err) {
@@ -1499,6 +1552,34 @@ router.post("/fees-store", (req, res) => {
                     fees = [];
                 }
 
+                const existingReport = fees.find((report) => {
+                    if (!report) {
+                        return false;
+                    }
+
+                    const sameRestaurant =
+                        String(report.restaurant_id || "").trim() === restaurantId;
+
+                    const sameDate =
+                        String(report.date || "").trim() === reportDate;
+
+                    return sameRestaurant && sameDate;
+                });
+
+                if (existingReport && user.account_type !== "admin") {
+                    const enteredPassword = String(password || "").trim();
+
+                    if (
+                        enteredPassword !== "01025" &&
+                        enteredPassword !== "01063"
+                    ) {
+                        return res.status(403).json({
+                            success: false,
+                            message: "تحديث التقرير يحتاج إلى باسورد صحيح"
+                        });
+                    }
+                }
+
                 fees = fees.filter((report) => {
                     if (!report) {
                         return false;
@@ -1514,13 +1595,14 @@ router.post("/fees-store", (req, res) => {
                 });
 
                 const report = {
-                    id:
-                        "rep_" +
-                        Date.now() +
-                        "_" +
-                        Math.random()
-                            .toString(36)
-                            .substring(2, 8),
+                    id: existingReport
+                        ? existingReport.id
+                        : "rep_" +
+                          Date.now() +
+                          "_" +
+                          Math.random()
+                              .toString(36)
+                              .substring(2, 8),
 
                     restaurant_id: restaurantId,
 
@@ -1562,7 +1644,9 @@ router.post("/fees-store", (req, res) => {
 
                         return res.status(201).json({
                             success: true,
-                            message: "تم تحديث الرسوم بنجاح",
+                            message: existingReport
+                                ? "تم تحديث التقرير بنجاح"
+                                : "تم حفظ التقرير بنجاح",
                             report
                         });
                     }
@@ -1571,7 +1655,6 @@ router.post("/fees-store", (req, res) => {
         );
     });
 });
-
 router.delete("/fees-delete", (req, res) => {
     const {
         token,
@@ -1717,9 +1800,9 @@ router.put("/fees-update", (req, res) => {
         reportId = "",
         code = "",
         name = "",
-        date = "",
         rows = [],
-        total = "0"
+        total = "0",
+        password = ""
     } = req.body;
 
     if (!token) {
@@ -1771,17 +1854,8 @@ router.put("/fees-update", (req, res) => {
             });
         }
 
-        const reportDate = String(date || "").trim();
-
-        if (!reportDate) {
-            return res.status(400).json({
-                success: false,
-                message: "التاريخ مطلوب"
-            });
-        }
-
         db.get(
-            "SELECT fees FROM users WHERE id = ? LIMIT 1",
+            "SELECT account_type, fees FROM users WHERE id = ? LIMIT 1",
             [userId],
             (err, user) => {
                 if (err) {
@@ -1796,6 +1870,20 @@ router.put("/fees-update", (req, res) => {
                         success: false,
                         message: "المستخدم غير موجود"
                     });
+                }
+
+                if (user.account_type !== "admin") {
+                    const enteredPassword = String(password || "").trim();
+
+                    if (
+                        enteredPassword !== "01025" &&
+                        enteredPassword !== "01063"
+                    ) {
+                        return res.status(403).json({
+                            success: false,
+                            message: "ليس لديك صلاحية تعديل التقرير بدون باسورد صحيح"
+                        });
+                    }
                 }
 
                 let fees = [];
@@ -1833,12 +1921,14 @@ router.put("/fees-update", (req, res) => {
                     });
                 }
 
+                const oldReport = fees[reportIndex];
+
                 const updatedReport = {
                     id: reportIdValue,
                     restaurant_id: restaurantId,
                     code: String(code || ""),
                     name: String(name || ""),
-                    date: reportDate,
+                    date: oldReport.date,
                     timestamp: new Date().toISOString(),
                     rows: rows.map((row) => ({
                         desc: String(row?.desc || ""),
@@ -1874,5 +1964,4 @@ router.put("/fees-update", (req, res) => {
         );
     });
 });
-
 module.exports = router;
