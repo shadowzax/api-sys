@@ -293,4 +293,156 @@ router.get("/users", (req, res) => {
         }
     });
 });
+router.get("/reports", (req, res) => {
+    const restaurantId = String(req.query.restaurant_id || "").trim();
+
+    if (!restaurantId) {
+        return res.status(400).json({
+            success: false,
+            message: "restaurant_id مطلوب"
+        });
+    }
+
+    const sql = `
+        SELECT id, name, profile_picture, advances, expenses, transfers, fees
+        FROM users
+        ORDER BY rowid DESC
+    `;
+
+    db.all(sql, [], (err, rows) => {
+        if (err) {
+            return res.status(500).json({
+                success: false,
+                message: err.message
+            });
+        }
+
+        try {
+            const reports = {
+                advances: [],
+                expenses: [],
+                transfers: [],
+                fees: []
+            };
+
+            rows.forEach(user => {
+                let advances = [];
+                let expenses = [];
+                let transfers = [];
+                let fees = [];
+
+                try {
+                    advances = JSON.parse(user.advances || "[]");
+                } catch (error) {
+                    advances = [];
+                }
+
+                try {
+                    expenses = JSON.parse(user.expenses || "[]");
+                } catch (error) {
+                    expenses = [];
+                }
+
+                try {
+                    transfers = JSON.parse(user.transfers || "[]");
+                } catch (error) {
+                    transfers = [];
+                }
+
+                try {
+                    fees = JSON.parse(user.fees || "[]");
+                } catch (error) {
+                    fees = [];
+                }
+
+                if (Array.isArray(advances)) {
+                    advances.forEach(report => {
+                        if (
+                            report &&
+                            String(report.restaurant_id || "").trim() === restaurantId
+                        ) {
+                            reports.advances.push({
+                                ...report,
+                                created_by: {
+                                    name: user.name || "",
+                                    profile_picture: user.profile_picture || ""
+                                }
+                            });
+                        }
+                    });
+                }
+
+                if (Array.isArray(expenses)) {
+                    expenses.forEach(report => {
+                        if (
+                            report &&
+                            String(report.restaurant_id || "").trim() === restaurantId
+                        ) {
+                            reports.expenses.push({
+                                ...report,
+                                created_by: {
+                                    name: user.name || "",
+                                    profile_picture: user.profile_picture || ""
+                                }
+                            });
+                        }
+                    });
+                }
+
+                if (Array.isArray(transfers)) {
+                    transfers.forEach(report => {
+                        if (
+                            report &&
+                            String(report.restaurant_id || "").trim() === restaurantId
+                        ) {
+                            reports.transfers.push({
+                                ...report,
+                                created_by: {
+                                    name: user.name || "",
+                                    profile_picture: user.profile_picture || ""
+                                }
+                            });
+                        }
+                    });
+                }
+
+                if (Array.isArray(fees)) {
+                    fees.forEach(report => {
+                        if (
+                            report &&
+                            String(report.restaurant_id || "").trim() === restaurantId
+                        ) {
+                            reports.fees.push({
+                                ...report,
+                                created_by: {
+                                    name: user.name || "",
+                                    profile_picture: user.profile_picture || ""
+                                }
+                            });
+                        }
+                    });
+                }
+            });
+
+            const total =
+                reports.advances.length +
+                reports.expenses.length +
+                reports.transfers.length +
+                reports.fees.length;
+
+            return res.status(200).json({
+                success: true,
+                restaurant_id: restaurantId,
+                count: total,
+                reports
+            });
+        } catch (error) {
+            return res.status(500).json({
+                success: false,
+                message: "حدث خطأ أثناء معالجة التقارير",
+                error: error.message
+            });
+        }
+    });
+});
 module.exports = router;
