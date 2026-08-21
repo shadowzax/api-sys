@@ -38,11 +38,15 @@ function generateUniqueEmployeeId(usedIds) {
     return id;
 }
 
-function generateEmployeeCode(usedCodes) {
+function generateEmployeeCode() {
+    return String(Math.floor(100 + Math.random() * 900));
+}
+
+function generateUniqueEmployeeCode(usedCodes) {
     let code;
 
     do {
-        code = String(Math.floor(100 + Math.random() * 900));
+        code = generateEmployeeCode();
     } while (usedCodes.has(code));
 
     usedCodes.add(code);
@@ -73,7 +77,7 @@ function normalizeEmployees(employees) {
         }
 
         if (!employeeCode || usedCodes.has(employeeCode)) {
-            employeeCode = generateEmployeeCode(usedCodes);
+            employeeCode = generateUniqueEmployeeCode(usedCodes);
         } else {
             usedCodes.add(employeeCode);
         }
@@ -186,7 +190,8 @@ function updateOldEmployees() {
 }
 
 db.serialize(() => {
-    db.run(`
+    db.run(
+        `
         CREATE TABLE IF NOT EXISTS salary_files (
             id TEXT PRIMARY KEY,
             name TEXT NOT NULL,
@@ -194,63 +199,65 @@ db.serialize(() => {
             created_at TEXT NOT NULL,
             employees TEXT NOT NULL DEFAULT '[]'
         )
-    `, (err) => {
-        if (err) {
-            console.error(err.message);
-            return;
-        }
-
-        db.all(
-            "PRAGMA table_info(salary_files)",
-            (err, columns) => {
-                if (err) {
-                    console.error(err.message);
-                    return;
-                }
-
-                const hasRestaurantId = columns.some(
-                    column => column.name === "restaurant_id"
-                );
-
-                const continueSetup = () => {
-                    db.run(
-                        `
-                        UPDATE salary_files
-                        SET restaurant_id = '1'
-                        WHERE restaurant_id IS NULL OR restaurant_id = ''
-                        `,
-                        (err) => {
-                            if (err) {
-                                console.error(err.message);
-                                return;
-                            }
-
-                            updateOldEmployees();
-                        }
-                    );
-                };
-
-                if (!hasRestaurantId) {
-                    db.run(
-                        `
-                        ALTER TABLE salary_files
-                        ADD COLUMN restaurant_id TEXT
-                        `,
-                        (err) => {
-                            if (err) {
-                                console.error(err.message);
-                                return;
-                            }
-
-                            continueSetup();
-                        }
-                    );
-                } else {
-                    continueSetup();
-                }
+        `,
+        (err) => {
+            if (err) {
+                console.error(err.message);
+                return;
             }
-        );
-    });
+
+            db.all(
+                "PRAGMA table_info(salary_files)",
+                (err, columns) => {
+                    if (err) {
+                        console.error(err.message);
+                        return;
+                    }
+
+                    const hasRestaurantId = columns.some(
+                        (column) => column.name === "restaurant_id"
+                    );
+
+                    const continueSetup = () => {
+                        db.run(
+                            `
+                            UPDATE salary_files
+                            SET restaurant_id = '1'
+                            WHERE restaurant_id IS NULL OR restaurant_id = ''
+                            `,
+                            (err) => {
+                                if (err) {
+                                    console.error(err.message);
+                                    return;
+                                }
+
+                                updateOldEmployees();
+                            }
+                        );
+                    };
+
+                    if (!hasRestaurantId) {
+                        db.run(
+                            `
+                            ALTER TABLE salary_files
+                            ADD COLUMN restaurant_id TEXT
+                            `,
+                            (err) => {
+                                if (err) {
+                                    console.error(err.message);
+                                    return;
+                                }
+
+                                continueSetup();
+                            }
+                        );
+                    } else {
+                        continueSetup();
+                    }
+                }
+            );
+        }
+    );
 });
 
 function createSalaryFile(name, restaurant_id, employees = []) {
@@ -281,7 +288,7 @@ function createSalaryFile(name, restaurant_id, employees = []) {
 
         const formattedEmployees = employees.map((employee) => {
             const employeeId = generateUniqueEmployeeId(usedIds);
-            const employeeCode = generateEmployeeCode(usedCodes);
+            const employeeCode = generateUniqueEmployeeCode(usedCodes);
 
             return {
                 id: employeeId,
