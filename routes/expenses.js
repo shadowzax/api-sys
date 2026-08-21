@@ -676,6 +676,7 @@ router.post("/advances-store", (req, res) => {
     });
 });
 
+
 router.delete("/advances-delete", (req, res) => {
     const {
         token,
