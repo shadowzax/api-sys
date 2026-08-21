@@ -6,20 +6,28 @@ const { db } = require("../mydb/users");
 
 router.post("/login", (req, res) => {
     const JWT_SECRET = "secretkey";
-    const { email, password } = req.body;
+    const { identifier, password } = req.body;
 
-    if (!email || !password) {
+    if (!identifier || !password) {
         return res.status(400).json({
             success: false,
-            message: "البريد الإلكتروني وكلمة المرور مطلوبان"
+            message: "البريد الإلكتروني أو رقم الهاتف وكلمة المرور مطلوبان"
         });
     }
 
     db.get(
-        "SELECT * FROM users WHERE email = ? LIMIT 1",
-        [email],
+        `
+        SELECT *
+        FROM users
+        WHERE email = ?
+           OR phone_number = ?
+        LIMIT 1
+        `,
+        [identifier, identifier],
         async (err, user) => {
             if (err) {
+                console.error("Login DB Error:", err);
+
                 return res.status(500).json({
                     success: false,
                     message: "حدث خطأ في قاعدة البيانات"
@@ -29,7 +37,14 @@ router.post("/login", (req, res) => {
             if (!user) {
                 return res.status(401).json({
                     success: false,
-                    message: "البريد الإلكتروني أو كلمة المرور غير صحيحة"
+                    message: "البريد الإلكتروني أو رقم الهاتف أو كلمة المرور غير صحيحة"
+                });
+            }
+
+            if (user.account_status && user.account_status !== "active") {
+                return res.status(403).json({
+                    success: false,
+                    message: "هذا الحساب غير نشط"
                 });
             }
 
@@ -42,7 +57,7 @@ router.post("/login", (req, res) => {
                 if (!passwordMatch) {
                     return res.status(401).json({
                         success: false,
-                        message: "البريد الإلكتروني أو كلمة المرور غير صحيحة"
+                        message: "البريد الإلكتروني أو رقم الهاتف أو كلمة المرور غير صحيحة"
                     });
                 }
 
@@ -64,10 +79,16 @@ router.post("/login", (req, res) => {
                         id: user.id,
                         name: user.name,
                         email: user.email,
-                        account_type: user.account_type
+                        phone_number: user.phone_number,
+                        account_type: user.account_type,
+                        account_status: user.account_status,
+                        job_title: user.job_title,
+                        profile_picture: user.profile_picture
                     }
                 });
             } catch (error) {
+                console.error("Login Error:", error);
+
                 return res.status(500).json({
                     success: false,
                     message: "حدث خطأ أثناء تسجيل الدخول"
