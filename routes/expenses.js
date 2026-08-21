@@ -1010,7 +1010,8 @@ router.post("/trans-store", (req, res) => {
         name = "",
         date = "",
         rows = [],
-        total = "0"
+        total = "0",
+        password = ""
     } = req.body;
 
     if (!token) {
@@ -1063,7 +1064,7 @@ router.post("/trans-store", (req, res) => {
         }
 
         db.get(
-            "SELECT transfers FROM users WHERE id = ? LIMIT 1",
+            "SELECT account_type, transfers FROM users WHERE id = ? LIMIT 1",
             [userId],
             (err, user) => {
                 if (err) {
@@ -1078,6 +1079,20 @@ router.post("/trans-store", (req, res) => {
                         success: false,
                         message: "المستخدم غير موجود"
                     });
+                }
+
+                if (user.account_type !== "admin") {
+                    const enteredPassword = String(password || "").trim();
+
+                    if (
+                        enteredPassword !== "01025" &&
+                        enteredPassword !== "01063"
+                    ) {
+                        return res.status(403).json({
+                            success: false,
+                            message: "ليس لديك صلاحية تخزين التحويلات بدون باسورد صحيح"
+                        });
+                    }
                 }
 
                 let transfers = [];
