@@ -590,20 +590,6 @@ router.post("/advances-store", (req, res) => {
                     });
                 }
 
-                if (user.account_type !== "admin") {
-                    const enteredPassword = String(password || "").trim();
-
-                    if (
-                        enteredPassword !== "01025" &&
-                        enteredPassword !== "01063"
-                    ) {
-                        return res.status(403).json({
-                            success: false,
-                            message: "ليس لديك صلاحية تخزين السلف بدون باسورد صحيح"
-                        });
-                    }
-                }
-
                 let advances = [];
 
                 try {
@@ -616,6 +602,34 @@ router.post("/advances-store", (req, res) => {
                     }
                 } catch (error) {
                     advances = [];
+                }
+
+                const existingReport = advances.find((report) => {
+                    if (!report) {
+                        return false;
+                    }
+
+                    const sameRestaurant =
+                        String(report.restaurant_id || "").trim() === restaurantId;
+
+                    const sameDate =
+                        String(report.date || "").trim() === reportDate;
+
+                    return sameRestaurant && sameDate;
+                });
+
+                if (existingReport && user.account_type !== "admin") {
+                    const enteredPassword = String(password || "").trim();
+
+                    if (
+                        enteredPassword !== "01025" &&
+                        enteredPassword !== "01063"
+                    ) {
+                        return res.status(403).json({
+                            success: false,
+                            message: "تحديث تقرير السلف يحتاج إلى باسورد صحيح"
+                        });
+                    }
                 }
 
                 advances = advances.filter((report) => {
@@ -633,13 +647,14 @@ router.post("/advances-store", (req, res) => {
                 });
 
                 const report = {
-                    id:
-                        "rep_" +
-                        Date.now() +
-                        "_" +
-                        Math.random()
-                            .toString(36)
-                            .substring(2, 8),
+                    id: existingReport
+                        ? existingReport.id
+                        : "rep_" +
+                          Date.now() +
+                          "_" +
+                          Math.random()
+                              .toString(36)
+                              .substring(2, 8),
 
                     restaurant_id: restaurantId,
 
@@ -681,7 +696,9 @@ router.post("/advances-store", (req, res) => {
 
                         return res.status(201).json({
                             success: true,
-                            message: "تم تحديث السلف بنجاح",
+                            message: existingReport
+                                ? "تم تحديث تقرير السلف بنجاح"
+                                : "تم حفظ تقرير السلف بنجاح",
                             report
                         });
                     }
@@ -690,7 +707,6 @@ router.post("/advances-store", (req, res) => {
         );
     });
 });
-
 
 router.delete("/advances-delete", (req, res) => {
     const {
@@ -1081,20 +1097,6 @@ router.post("/trans-store", (req, res) => {
                     });
                 }
 
-                if (user.account_type !== "admin") {
-                    const enteredPassword = String(password || "").trim();
-
-                    if (
-                        enteredPassword !== "01025" &&
-                        enteredPassword !== "01063"
-                    ) {
-                        return res.status(403).json({
-                            success: false,
-                            message: "ليس لديك صلاحية تخزين التحويلات بدون باسورد صحيح"
-                        });
-                    }
-                }
-
                 let transfers = [];
 
                 try {
@@ -1107,6 +1109,34 @@ router.post("/trans-store", (req, res) => {
                     }
                 } catch (error) {
                     transfers = [];
+                }
+
+                const existingReport = transfers.find((report) => {
+                    if (!report) {
+                        return false;
+                    }
+
+                    const sameRestaurant =
+                        String(report.restaurant_id || "").trim() === restaurantId;
+
+                    const sameDate =
+                        String(report.date || "").trim() === reportDate;
+
+                    return sameRestaurant && sameDate;
+                });
+
+                if (existingReport && user.account_type !== "admin") {
+                    const enteredPassword = String(password || "").trim();
+
+                    if (
+                        enteredPassword !== "01025" &&
+                        enteredPassword !== "01063"
+                    ) {
+                        return res.status(403).json({
+                            success: false,
+                            message: "تحديث تقرير التحويلات يحتاج إلى باسورد صحيح"
+                        });
+                    }
                 }
 
                 transfers = transfers.filter((report) => {
@@ -1124,13 +1154,14 @@ router.post("/trans-store", (req, res) => {
                 });
 
                 const report = {
-                    id:
-                        "rep_" +
-                        Date.now() +
-                        "_" +
-                        Math.random()
-                            .toString(36)
-                            .substring(2, 8),
+                    id: existingReport
+                        ? existingReport.id
+                        : "rep_" +
+                          Date.now() +
+                          "_" +
+                          Math.random()
+                              .toString(36)
+                              .substring(2, 8),
 
                     restaurant_id: restaurantId,
 
@@ -1172,7 +1203,9 @@ router.post("/trans-store", (req, res) => {
 
                         return res.status(201).json({
                             success: true,
-                            message: "تم تحديث التحويلات بنجاح",
+                            message: existingReport
+                                ? "تم تحديث تقرير التحويلات بنجاح"
+                                : "تم حفظ تقرير التحويلات بنجاح",
                             report
                         });
                     }
