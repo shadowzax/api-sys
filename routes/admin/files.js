@@ -892,7 +892,16 @@ router.post("/advance", (req, res) => {
 });
 
 router.post("/salary", (req, res) => {
-    const { token, fileId, employeeId, day, amount } = req.body;
+    const {
+        token,
+        fileId,
+        employeeId,
+        day,
+        amount,
+        deductionDays,
+        insuranceDeduction,
+        cashDeduction
+    } = req.body;
 
     if (!token) {
         return res.status(400).json({
@@ -909,7 +918,12 @@ router.post("/salary", (req, res) => {
             });
         }
 
-        const userId = decoded.id || decoded.userId || decoded._id || decoded.user_id || decoded.sub;
+        const userId =
+            decoded.id ||
+            decoded.userId ||
+            decoded._id ||
+            decoded.user_id ||
+            decoded.sub;
 
         if (!userId) {
             return res.status(401).json({
@@ -944,7 +958,13 @@ router.post("/salary", (req, res) => {
                     });
                 }
 
-                if (!fileId || !employeeId || day === undefined || day === null || day === "") {
+                if (
+                    !fileId ||
+                    !employeeId ||
+                    day === undefined ||
+                    day === null ||
+                    day === ""
+                ) {
                     return res.status(400).json({
                         success: false,
                         message: "fileId و employeeId و day مطلوبة"
@@ -953,7 +973,11 @@ router.post("/salary", (req, res) => {
 
                 const dayNumber = Number(day);
 
-                if (!Number.isInteger(dayNumber) || dayNumber < 1 || dayNumber > 31) {
+                if (
+                    !Number.isInteger(dayNumber) ||
+                    dayNumber < 1 ||
+                    dayNumber > 31
+                ) {
                     return res.status(400).json({
                         success: false,
                         message: "اليوم يجب أن يكون رقمًا من 1 إلى 31"
@@ -965,13 +989,69 @@ router.post("/salary", (req, res) => {
                     amount === null ||
                     amount === "" ||
                     !Number.isFinite(Number(amount)) ||
-                    Number(amount) < 0 ||
-                    Number(amount) > 2
+                    Number(amount) < 0
                 ) {
                     return res.status(400).json({
                         success: false,
-                        message: "قيمة الراتب يجب أن تكون من 0 إلى 2"
+                        message: "قيمة الراتب يجب أن تكون رقمًا أكبر من أو يساوي 0"
                     });
+                }
+
+                let deductionDaysValue = 0;
+
+                if (
+                    deductionDays !== undefined &&
+                    deductionDays !== null &&
+                    deductionDays !== ""
+                ) {
+                    const value = Number(deductionDays);
+
+                    if (!Number.isInteger(value) || value < 0) {
+                        return res.status(400).json({
+                            success: false,
+                            message: "خصم الأيام يجب أن يكون عددًا صحيحًا أكبر من أو يساوي 0"
+                        });
+                    }
+
+                    deductionDaysValue = value;
+                }
+
+                let insuranceDeductionValue = 0;
+
+                if (
+                    insuranceDeduction !== undefined &&
+                    insuranceDeduction !== null &&
+                    insuranceDeduction !== ""
+                ) {
+                    const value = Number(insuranceDeduction);
+
+                    if (!Number.isFinite(value) || value < 0) {
+                        return res.status(400).json({
+                            success: false,
+                            message: "خصم التأمينات يجب أن يكون مبلغًا أكبر من أو يساوي 0"
+                        });
+                    }
+
+                    insuranceDeductionValue = value;
+                }
+
+                let cashDeductionValue = 0;
+
+                if (
+                    cashDeduction !== undefined &&
+                    cashDeduction !== null &&
+                    cashDeduction !== ""
+                ) {
+                    const value = Number(cashDeduction);
+
+                    if (!Number.isFinite(value) || value < 0) {
+                        return res.status(400).json({
+                            success: false,
+                            message: "الخصم النقدي يجب أن يكون مبلغًا أكبر من أو يساوي 0"
+                        });
+                    }
+
+                    cashDeductionValue = value;
                 }
 
                 const dayValue = String(dayNumber);
@@ -997,6 +1077,7 @@ router.post("/salary", (req, res) => {
                         }
 
                         let employees;
+
                         try {
                             employees = JSON.parse(file.employees || "[]");
                         } catch (error) {
@@ -1015,7 +1096,9 @@ router.post("/salary", (req, res) => {
                         }
 
                         const employeeIndex = employees.findIndex(
-                            employee => employee && String(employee.id) === String(employeeId)
+                            employee =>
+                                employee &&
+                                String(employee.id) === String(employeeId)
                         );
 
                         if (employeeIndex === -1) {
@@ -1027,7 +1110,9 @@ router.post("/salary", (req, res) => {
 
                         const employee = employees[employeeIndex];
 
-                        const salaryRecords = Array.isArray(employee.salaryRecords) ? employee.salaryRecords : [];
+                        const salaryRecords = Array.isArray(employee.salaryRecords)
+                            ? employee.salaryRecords
+                            : [];
 
                         let salaryRecord = salaryRecords.find(
                             record =>
@@ -1039,13 +1124,33 @@ router.post("/salary", (req, res) => {
                         );
 
                         if (!salaryRecord) {
-                            salaryRecord = { days: {} };
+                            salaryRecord = {
+                                days: {},
+                                deductionDays: 0,
+                                insuranceDeduction: 0,
+                                cashDeduction: 0
+                            };
+
                             salaryRecords.push(salaryRecord);
                         }
 
-                        salaryRecord.days[dayValue] = amountValue;
+                        if (
+                            !salaryRecord.days ||
+                            typeof salaryRecord.days !== "object" ||
+                            Array.isArray(salaryRecord.days)
+                        ) {
+                            salaryRecord.days = {};
+                        }
 
-                        employees[employeeIndex] = { ...employee, salaryRecords };
+                        salaryRecord.days[dayValue] = amountValue;
+                        salaryRecord.deductionDays = deductionDaysValue;
+                        salaryRecord.insuranceDeduction = insuranceDeductionValue;
+                        salaryRecord.cashDeduction = cashDeductionValue;
+
+                        employees[employeeIndex] = {
+                            ...employee,
+                            salaryRecords
+                        };
 
                         db.run(
                             "UPDATE salary_files SET employees = ? WHERE id = ?",
@@ -1061,11 +1166,14 @@ router.post("/salary", (req, res) => {
 
                                 return res.status(200).json({
                                     success: true,
-                                    message: "تم حفظ الراتب بنجاح",
+                                    message: "تم حفظ الراتب والخصومات بنجاح",
                                     fileId,
                                     employeeId,
                                     day: dayValue,
                                     amount: amountValue,
+                                    deductionDays: salaryRecord.deductionDays,
+                                    insuranceDeduction: salaryRecord.insuranceDeduction,
+                                    cashDeduction: salaryRecord.cashDeduction,
                                     employee: employees[employeeIndex]
                                 });
                             }
